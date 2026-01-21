@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Autonomous News Aggregator — Transparent Overlay</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  <style>
+    :root {
+      --chroma-electric-blue: #007bff;
+      --chroma-neon-green: #39ff14;
+      --chroma-coral: #ff7f50;
+      --chroma-purple: #8a2be2;
+      --bg-dark-color: transparent;
+      --text-light-color: #e0e0e0;
+      --font-family: 'Poppins', 'Roboto', sans-serif;
+      --transition-duration: 0.3s;
+      --ticker-height: 100px;
+      --ticker-speed: 19840s;
+      --carousel-size: 80px;
+      --controls-height: 70px;
+    }
+
+    html,
+    body {
+      background: rgba(0, 0, 0, 0) !important;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: var(--text-light-color);
+      line-height: 1.6;
+      overflow: hidden;
+    }
+
+    .glass {
+      background: rgba(0, 0, 0, 0.22);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-weight: 700;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    }
+
+    p {
+      font-size: 1rem;
+      text-align: left;
+      word-spacing: normal;
+    }
+
+    .title {
+      color: #fff;
+      text-shadow: 1px 1px 3px var(--chroma-neon-green);
+    }
+
+    .subtitle {
+      color: var(--text-light-color);
+    }
+
+    .controls-container {
+      padding: 0.5rem 1rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      height: var(--controls-height);
+      flex-wrap: wrap;
+    }
+
+    .dropdown-wrapper {
+      position: relative;
+      display: inline-block;
+    }
+
+    .dropdown-wrapper select {
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text-light-color);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      padding: 0.5rem 2.2rem 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+      appearance: none;
+      width: 100%;
+      max-width: 250px;
+    }
+
+    .dropdown-wrapper::after {
+      content: '\\25BC';
+      position: absolute;
+      top: 50%;
+      right: 12px;
+      transform: translateY(-50%);
+      color: var(--chroma-neon-green);
+      pointer-events: none;
+      font-size: 0.8rem;
+    }
+
+    #refresh-button {
+      background: rgba(0, 0, 0, 0.2);
+      color: var(--text-light-color);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    #refresh-button:hover {
+      background: rgba(0, 0, 0, 0.35);
+      border-color: rgba(255, 255, 255, 0.35);
+    }
+
+    #refresh-button i {
+      margin-right: 8px;
+    }
+
+    .news-grid-container {
+      flex-grow: 1;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0.5rem;
+    }
+
+    #news-grid {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      height: 100%;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .news-card-wrapper {
+      flex: 1 1 calc(33.333% - 1.5rem);
+      min-width: 250px;
+      height: 300px;
+      margin: 0.375rem;
+      display: flex;
+      flex-direction: column;
+      perspective: 1000px;
+    }
+
+    .flip-panel .news-card {
+      transform: rotateY(180deg);
+    }
+
+    .news-card {
+      border-radius: 12px;
+      overflow: hidden;
+      transition: transform 1s ease-in-out, box-shadow var(--transition-duration);
+      background: rgba(0, 0, 0, 0.18);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      color: #fff;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      transform-style: preserve-3d;
+      box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+    }
+
+    .news-card:hover {
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    .card-content-top {
+      padding: 1rem;
+      background: rgba(0, 0, 0, 0);
+    }
+
+    .card-content-top h3 {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #fff !important;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    .card-content-top .text-metadata {
+      margin-top: 0.25rem;
+      margin-bottom: 0.25rem;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .card-image {
+      position: relative;
+      flex-shrink: 0;
+      max-height: 60%;
+      overflow: hidden;
+      backface-visibility: hidden;
+      height: 60%;
+    }
+
+    .card-image img {
+      border-radius: 12px;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.5s ease-in-out;
+    }
+
+    .card-image:hover img {
+      transform: scale(1.05);
+    }
+
+    .image-headline-overlay {
+      position: absolute;
+      inset: 0;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      background: linear-gradient(to top, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.35) 55%, rgba(0, 0, 0, 0) 100%);
+      color: #fff;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+      backface-visibility: hidden;
+    }
+
+    .image-overlay-text {
+      font-size: 0.9rem;
+      text-align: center;
+      color: #fff;
+      word-spacing: normal;
+      margin: 0;
+    }
+
+    .card-content {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 1rem;
+      backface-visibility: hidden;
+      background: transparent;
+    }
+
+    .text-metadata {
+      margin-top: -0.2rem;
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .card-content h3 {
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #fff !important;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.6);
+    }
+
+    .card-content p {
+      font-size: 0.9rem;
+      text-align: left;
+      color: #fff;
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+      word-spacing: normal;
+    }
+
+    .progress-bar {
+      background-color: var(--chroma-electric-blue);
+    }
+
+    .loading-animation {
+      text-align: center;
+      width: 100%;
+    }
+
+    #bottom-section {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: var(--ticker-height);
+      display: flex;
+      flex-direction: row;
+      z-index: 1000;
+      pointer-events: none;
+      background: transparent;
+    }
+
+    #news-ticker-banner {
+      pointer-events: auto;
+      flex-grow: 1;
+      height: 100%;
+      color: #fff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      border-right: 0;
+      background: linear-gradient(to right, rgba(0, 0, 0, 0.22), rgba(0, 0, 0, 0));
+      border-top-left-radius: 12px;
+    }
+
+    #ticker-container {
+      display: flex;
+      flex-direction: row;
+      height: 100%;
+      animation: scroll-left var(--ticker-speed) linear infinite;
+    }
+
+    @keyframes scroll-left {
+      0% {
+        transform: translateX(0);
+      }
+      100% {
+        transform: translateX(-100%);
+      }
+    }
+
+    .ticker-item {
+      flex-shrink: 0;
+      padding: 0 1rem;
+      text-align: left;
+      transition: background-color var(--transition-duration);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      height: 100%;
+      white-space: nowrap;
+      border-right: 0;
+    }
+
+    .ticker-item:hover {
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .ticker-item-content {
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      height: 100%;
+    }
+
+    .ticker-item-content h3 {
+      font-size: 0.9rem;
+      margin: 0;
+      color: #fff;
+      font-weight: 600;
+      text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.7);
+    }
+
+    #photo-carousel-container {
+      pointer-events: none;
+      flex-shrink: 0;
+      width: var(--carousel-size);
+      height: var(--carousel-size);
+      background: rgba(0, 0, 0, 0.22);
+      border: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      border-top-right-radius: 12px;
+    }
+
+    #carousel-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 1;
+      transition: opacity 1s ease-in-out;
+    }
+
+    .fade-out {
+      opacity: 0;
+    }
+
+    .knockout-white img,
+    img.knockout-white {
+      mix-blend-mode: multiply;
+    }
+
+    @media (max-width: 768px) {
+      .news-card-wrapper {
+        flex: 1 1 calc(50% - 1rem);
+        min-width: 200px;
+        height: 250px;
+      }
+
+      .card-content-top h3,
+      .card-content h3 {
+        font-size: 1rem;
+      }
+
+      .card-content p {
+        font-size: 0.8rem;
+      }
+
+      #news-ticker-banner {
+        font-size: 0.8rem;
+      }
+
+      .ticker-item-content h3 {
+        font-size: 0.8rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .news-card-wrapper {
+        flex: 1 1 100%;
+        min-width: 100%;
+        height: 220px;
+      }
+
+      .controls-container {
+        flex-direction: column;
+        height: auto;
+        padding: 0.5rem;
+      }
+
+      .dropdown-wrapper select {
+        width: 100%;
+        margin-bottom: 0.5rem;
+      }
+
+      #refresh-button {
+        width: 100%;
+      }
+
+      #news-ticker-banner {
+        font-size: 0.7rem;
+      }
+
+      .ticker-item-content h3 {
+        font-size: 0.7rem;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="controls-container">
+    <div class="dropdown-wrapper">
+      <select id="category-selector">
+        <option value="All">All Categories</option>
+        <option value="Weather & Climate">Weather & Climate</option>
+        <option value="Space & Science">Space & Science</option>
+        <option value="General News">General News</option>
+        <option value="Tech & Business">Tech & Business</option>
+        <option value="Sports">Sports</option>
+        <option value="Entertainment & Culture">Entertainment & Culture</option>
+      </select>
+    </div>
+    <button id="refresh-button"><i class="fas fa-sync-alt"></i> Refresh</button>
+  </div>
+
+  <section class="news-grid-container">
+    <div id="news-grid">
+      <div id="loading-spinner" class="news-card-wrapper loading-animation">
+        <p class="is-size-4 has-text-centered has-text-white">Fetching the latest news…</p>
+        <progress class="progress is-small progress-bar is-radiusless mt-2" max="100"></progress>
+      </div>
+    </div>
+  </section>
+
+  <section id="bottom-section">
+    <div id="news-ticker-banner">
+      <div id="ticker-container"></div>
+    </div>
+    <div id="photo-carousel-container">
+      <img id="carousel-photo" src="https://placehold.co/80x80/222/fff?text=…" alt="News photo carousel" />
+    </div>
+  </section>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const RSS_LINKS = {
+        'Weather & Climate': [
+          "https://www.bbc.co.uk/weather/feeds/en",
+          "http://drroyspencer.com/feed",
+        ],
+        'Space & Science': [
+          "https://www.nasa.gov/rss/dyn/breaking_news.rss",
+          "https://earthobservatory.nasa.gov/feeds",
+          "https://www.jpl.nasa.gov/news/rss",
+          "https://www.sciencedaily.com/rss/top/science.xml",
+          "https://www.newscientist.com/article-topic/science/rss",
+          "https://www.scientificamerican.com/rss/",
+          "https://www.space.com/feeds/all",
+          "https://www.esa.int/rss"
+        ],
+        'General News': [
+          "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml",
+          "https://www.washingtonpost.com/rss",
+          "http://rss.cnn.com/rss/cnn_topstories.rss",
+          "https://www.npr.org/rss/rss.php?id=1001",
+          "https://feeds.bbci.co.uk/news/rss.xml",
+          "https://www.aljazeera.com/xml/rss/all.xml",
+          "https://www.dailymail.co.uk/news/index.rss",
+          "https://www.cbc.ca/webfeed/rss/rss-topstories",
+          "https://www.yahoo.com/news/rss",
+          "https://moxie.foxnews.com/google-publisher/latest.xml",
+          "https://nypost.com/feed/",
+          "https://reason.com/feed/",
+          "https://www.washingtonexaminer.com/feed/",
+          "https://townhall.com/feed",
+          "https://feeds.feedburner.com/breitbart",
+          "https://dailycaller.com/feed/",
+          "https://feeds.reuters.com/reuters/topNews",
+          "https://www.theguardian.com/world/rss",
+          "https://www.skynews.com.au/news/rss",
+          "https://www.cbsnews.com/latest/rss/headlines",
+          "https://resistthemainstream.com/feed/",
+          "https://grabien.com/rss.php?type=stories/",
+          "https://www.rt.com/rss/news/",
+          "https://notthebee.com/feed/",
+          "https://tass.com/rss/v2.xml/",
+          "https://www.theage.com.au/rss/feed.xml/",
+        ],
+        'Tech & Business': [
+          "https://www.bloomberg.com/feed/bview",
+          "https://www.cnbc.com/id/100003114/device/rss/rss.html",
+          "https://www.theverge.com/rss/index.xml",
+          "https://www.wired.com/feed/rss",
+          "https://www.techmeme.com/feed.xml",
+          "https://cms.zerohedge.com/fullrss2.xml",
+          "https://www.cnet.com/rss/news/",
+          "https://www.engadget.com/rss.xml",
+          "https://gizmodo.com/rss",
+          "https://techcrunch.com/feed/",
+          "https://arstechnica.com/feed/",
+        ],
+        'Sports': [
+          "https://www.cbssports.com/rss/headlines/",
+          "https://www.cbssports.com/nfl/rss/",
+          "https://www.cbssports.com/mlb/rss/",
+          "https://www.cbssports.com/nba/rss/",
+          "https://www.cbssports.com/nhl/rss/",
+          "https://www.foxsports.com/rss-feeds/nfl/",
+          "https://www.foxsports.com/rss-feeds/mlb/",
+          "https://www.foxsports.com/rss-feeds/soccer/",
+        ],
+        'Entertainment & Culture': [
+          "https://feeds.feedburner.com/PerezHilton",
+          "https://www.etonline.com/news/rss",
+          "https://feeds.feedburner.com/tmz/news",
+          "https://www.eonline.com/rss/news.jsp",
+          "https://www.vulture.com/rss/index.xml",
+          "https://www.hollywoodreporter.com/feed/",
+          "https://deadline.com/feed/",
+          "https://altcensored.com/feed/",
+          "https://rss.nytimes.com/services/xml/rss/nyt/US.xml/",
+          "https://rss.nytimes.com/services/xml/rss/nyt/Politics.xml/",
+          "https://hotair.com/headlines/feed/",
+          "https://www.theage.com.au/rss/world.xml/",
+          "https://www.wnd.com/feed/",
+          "https://www.newsbusters.org/blog/feed/",
+          "https://twitchy.com/feed/",
+          "https://pjmedia.com/news-and-politics/feed/",
+          "https://www.realclearpolitics.com/index.xml/",
+          "https://freebeacon.com/feed/",
+          "https://dissentwatch.com/?feed=linkfeed/",
+          "https://redstate.com/feed/",
+          "https://feeds.feedburner.com/zerohedge/feed/",
+          "https://www.cbsnews.com/latest/rss/main/",
+          "https://feeds.feedburner.com/breitbart/",
+        ]
+      };
+
+      const M3U_IMAGE_URL = 'https://cdn.glitch.global/03c15039-3832-45e0-82cc-4598d1a49f50/m3u.txt';
+      const PROXY_SERVERS = [
+        'https://api.allorigins.win/raw?url=',
+        'https://cors-anywhere.herokuapp.com/',
+        'https://thingproxy.freeboard.io/fetch/'
+      ];
+
+      const PANEL_CHANGE_INTERVAL = 30000;
+      const SUB_PANEL_INTERVAL = 5000;
+      const SCROLL_THROTTLE_TIME = 500;
+      const PANELS_TO_SHOW = 3;
+
+      const NewsAggregator = (() => {
+        let allNews = [];
+        let carouselImages = [];
+        let currentPhotoIndex = 0;
+        let timers = [];
+        let animationTimeouts = [];
+        let currentPanelCycleTimeout = null;
+        let photoCarouselTimer = null;
+        let lastScrollTime = 0;
+
+        const newsGrid = document.getElementById('news-grid');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const tickerContainer = document.getElementById('ticker-container');
+        const categorySelector = document.getElementById('category-selector');
+        const refreshButton = document.getElementById('refresh-button');
+        const photoCarousel = document.getElementById('photo-carousel-container');
+        const carouselPhoto = document.getElementById('carousel-photo');
+
+        const setSafeTimeout = (callback, delay) => {
+          const timer = setTimeout(callback, delay);
+          timers.push(timer);
+          return timer;
+        };
+
+        const clearAllTimers = () => {
+          timers.forEach(clearTimeout);
+          timers = [];
+        };
+
+        const cleanupAndReset = () => {
+          clearAllTimers();
+          animationTimeouts.forEach(clearTimeout);
+          animationTimeouts = [];
+          if (currentPanelCycleTimeout) clearTimeout(currentPanelCycleTimeout);
+          if (photoCarouselTimer) clearInterval(photoCarouselTimer);
+
+          allNews = [];
+          carouselImages = [];
+          currentPhotoIndex = 0;
+          currentPanelCycleTimeout = null;
+          photoCarouselTimer = null;
+
+          window.removeEventListener('wheel', handleUserScroll);
+          window.removeEventListener('keydown', handleUserScroll);
+        };
+
+        const animateTextLooped = (el, text) => {
+          el.textContent = '';
+          const words = text.split(' ');
+          const chunkSize = 50;
+          let wordIndex = 0;
+
+          const typeChunk = () => {
+            const chunk = words.slice(wordIndex, wordIndex + chunkSize);
+            el.textContent = '';
+
+            if (chunk.length === 0) {
+              wordIndex = 0;
+              animationTimeouts.push(setTimeout(typeChunk, 5000));
+              return;
+            }
+
+            let i = 0;
+            const typeWord = () => {
+              if (i < chunk.length) {
+                el.textContent += (i > 0 ? ' ' : '') + chunk[i];
+                i++;
+                const delay = Math.random() * 80 + 50;
+                animationTimeouts.push(setTimeout(typeWord, delay));
+              } else {
+                wordIndex += chunkSize;
+                animationTimeouts.push(setTimeout(typeChunk, 5000));
+              }
+            };
+            typeWord();
+          };
+          typeChunk();
+        };
+
+        const createPanelHTML = (item) => {
+          const hasImage = item.image && item.image.startsWith('http');
+          const full = item.description || 'No description available.';
+          const placeholder = 'https://placehold.co/400x200/222/fff?text=No+Image';
+          const formattedDate = item.pubDate ? new Date(item.pubDate).toLocaleString() : 'Date N/A';
+          const authorInfo = item.author ? `by ${item.author}` : '';
+
+          if (hasImage) {
+            return `
+              <a href="${item.link}" target="_blank" class="card news-card">
+                <div class="card-content-top">
+                  <h3 class="title is-5">${item.title}</h3>
+                  <div class="text-metadata">${formattedDate} ${authorInfo}</div>
+                </div>
+                <div class="card-image">
+                  <img data-src="${item.image}" onerror="this.onerror=null;this.src='${placeholder}';" alt="News image" loading="lazy">
+                  <div class="image-headline-overlay">
+                    <p class="image-overlay-text typing-text" data-full-description="${full}"></p>
+                  </div>
+                </div>
+              </a>
+            `;
+          } else {
+            return `
+              <a href="${item.link}" target="_blank" class="card news-card no-image">
+                <div class="card-content">
+                  <div class="content">
+                    <h3 class="title is-5">${item.title}</h3>
+                    <div class="text-metadata">${formattedDate} ${authorInfo}</div>
+                    <p class="typing-text" data-full-description="${full}"></p>
+                  </div>
+                </div>
+              </a>
+            `;
+          }
+        };
+
+        const replacePanel = (panelEl, newArticle) => {
+          animationTimeouts.forEach(t => clearTimeout(t));
+          animationTimeouts = [];
+
+          panelEl.classList.add('flip-panel');
+          setSafeTimeout(() => {
+            panelEl.innerHTML = createPanelHTML(newArticle);
+            const tEl = panelEl.querySelector('.typing-text');
+            if (tEl) {
+              animateTextLooped(tEl, tEl.getAttribute('data-full-description'));
+            }
+
+            // Lazy load images
+            const lazyImages = panelEl.querySelectorAll('img[loading="lazy"]');
+            const observer = new IntersectionObserver((entries) => {
+              entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                  const img = entry.target;
+                  img.src = img.dataset.src;
+                  observer.unobserve(img);
+                }
+              });
+            });
+            lazyImages.forEach(img => observer.observe(img));
+          }, 500);
+
+          setSafeTimeout(() => panelEl.classList.remove('flip-panel'), 1000);
+        };
+
+        const cyclePanels = () => {
+          const panelWrappers = document.querySelectorAll('.news-card-wrapper');
+          shuffle(allNews);
+          let articleIndex = 0;
+          let panelIndex = 0;
+
+          const changePanel = () => {
+            if (panelIndex < PANELS_TO_SHOW) {
+              const next = allNews[articleIndex++];
+              if (!next) return;
+
+              replacePanel(panelWrappers[panelIndex], next);
+              panelIndex++;
+              currentPanelCycleTimeout = setSafeTimeout(changePanel, SUB_PANEL_INTERVAL);
+            } else {
+              currentPanelCycleTimeout = setSafeTimeout(cyclePanels, PANEL_CHANGE_INTERVAL);
+            }
+          };
+          changePanel();
+        };
+
+        const shuffle = (arr) => {
+          for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+          }
+        };
+
+        const renderNewsPanels = () => {
+          newsGrid.innerHTML = '';
+          shuffle(allNews);
+          const show = allNews.slice(0, PANELS_TO_SHOW);
+
+          if (show.length === 0) {
+            newsGrid.innerHTML = `
+              <div class="news-card-wrapper loading-animation">
+                <p class="is-size-4 has-text-centered has-text-white">No news articles found for this category.</p>
+              </div>`;
+            return;
+          }
+
+          const fragment = document.createDocumentFragment();
+          show.forEach(item => {
+            const wrap = document.createElement('div');
+            wrap.className = 'news-card-wrapper';
+            wrap.innerHTML = createPanelHTML(item);
+            fragment.appendChild(wrap);
+
+            const tEl = wrap.querySelector('.typing-text');
+            if (tEl) {
+              animateTextLooped(tEl, tEl.getAttribute('data-full-description'));
+            }
+
+            // Lazy load images
+            const lazyImages = wrap.querySelectorAll('img[loading="lazy"]');
+            const observer = new IntersectionObserver((entries) => {
+              entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                  const img = entry.target;
+                  img.src = img.dataset.src;
+                  observer.unobserve(img);
+                }
+              });
+            });
+            lazyImages.forEach(img => observer.observe(img));
+          });
+
+          newsGrid.appendChild(fragment);
+          currentPanelCycleTimeout = setSafeTimeout(cyclePanels, PANEL_CHANGE_INTERVAL);
+        };
+
+        const renderNewsTicker = () => {
+          tickerContainer.innerHTML = '';
+          if (allNews.length === 0) {
+            tickerContainer.innerHTML = `<div class="ticker-item-content has-text-centered"><h3>No news articles for this category.</h3></div>`;
+            return;
+          }
+
+          const tickerArticles = [...allNews, ...allNews];
+          tickerArticles.forEach(item => {
+            const a = document.createElement('a');
+            a.href = item.link;
+            a.target = '_blank';
+            a.classList.add('ticker-item');
+            a.innerHTML = `<div class="ticker-item-content"><h3>${item.title}</h3></div>`;
+            tickerContainer.appendChild(a);
+          });
+        };
+
+        const fetchWithProxyFallback = async (url) => {
+          for (const proxy of PROXY_SERVERS) {
+            try {
+              const res = await fetch(`${proxy}${encodeURIComponent(url)}`);
+              if (!res.ok) continue;
+
+              const text = await res.text();
+              const parser = new DOMParser();
+              const xmlDoc = parser.parseFromString(text, 'text/xml');
+
+              if (xmlDoc.querySelector('parsererror')) continue;
+              return xmlDoc;
+            } catch (e) {
+              console.warn(`Proxy ${proxy} failed:`, e);
+            }
+          }
+          throw new Error(`All proxies failed: ${url}`);
+        };
+
+        const setupPhotoCarousel = () => {
+          if (photoCarouselTimer) clearInterval(photoCarouselTimer);
+
+          carouselImages = allNews.filter(a => a.image).map(a => a.image);
+          const box = document.getElementById('photo-carousel-container');
+
+          if (carouselImages.length > 0) {
+            box.style.display = 'flex';
+            currentPhotoIndex = 0;
+            updateCarouselPhoto();
+            photoCarouselTimer = setInterval(updateCarouselPhoto, 7000);
+          } else {
+            box.style.display = 'none';
+          }
+        };
+
+        const updateCarouselPhoto = () => {
+          if (carouselImages.length === 0) {
+            document.getElementById('photo-carousel-container').style.display = 'none';
+            return;
+          }
+
+          carouselPhoto.classList.add('fade-out');
+          setSafeTimeout(() => {
+            carouselPhoto.src = carouselImages[currentPhotoIndex];
+            currentPhotoIndex = (currentPhotoIndex + 1) % carouselImages.length;
+            carouselPhoto.classList.remove('fade-out');
+          }, 1000);
+        };
+
+        const fetchM3uImages = async () => {
+          try {
+            const res = await fetch(M3U_IMAGE_URL);
+            const text = await res.text();
+            return text.split('\n').filter(line => line.trim() !== '' && !line.startsWith('#'));
+          } catch (e) {
+            return [];
+          }
+        };
+
+        const fetchNews = async (category = 'All') => {
+          cleanupAndReset();
+
+          let feeds = category === 'All' ? Object.values(RSS_LINKS).flat() : (RSS_LINKS[category] || []);
+          let fetched = [];
+
+          loadingSpinner.style.display = 'flex';
+          newsGrid.innerHTML = '';
+          newsGrid.appendChild(loadingSpinner);
+
+          const promises = feeds.map(async url => {
+            try {
+              const xml = await fetchWithProxyFallback(url);
+              const items = xml.querySelectorAll('item, entry');
+
+              items.forEach(item => {
+                const title = item.querySelector('title')?.textContent || 'No Title';
+                const author = item.querySelector('author')?.textContent || item.querySelector('dc\\:creator')?.textContent || null;
+                const link = item.querySelector('link')?.textContent || item.querySelector('link[rel="alternate"]')?.getAttribute('href') || '#';
+                const pubDate = item.querySelector('pubDate')?.textContent || item.querySelector('updated')?.textContent || 'N/A';
+                let description = item.querySelector('description')?.textContent || item.querySelector('summary')?.textContent || '';
+                let image = item.querySelector('media\\:content, content, image[url]')?.getAttribute('url') ||
+                  item.querySelector('enclosure')?.getAttribute('url') ||
+                  (description.match(/<img[^>]+src="([^">]+)"/)?.[1]) || null;
+
+                description = description.replace(/<[^>]*>/g, '');
+                fetched.push({ title, author, link, pubDate, description, image });
+              });
+            } catch (e) {
+              console.warn(`Failed to fetch ${url}:`, e);
+            }
+          });
+
+          const m3u = await fetchM3uImages();
+          const m3uArticles = m3u.map(url => ({
+            title: 'Random Photo',
+            author: null,
+            link: '#',
+            pubDate: new Date().toISOString(),
+            description: 'A beautiful image from a public collection.',
+            image: url
+          }));
+
+          fetched = fetched.concat(m3uArticles);
+          await Promise.all(promises);
+
+          fetched.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+          allNews = fetched.slice(0, 100);
+
+          loadingSpinner.style.display = 'none';
+          renderNewsPanels();
+          renderNewsTicker();
+          setupPhotoCarousel();
+        };
+
+        const handleUserScroll = () => {
+          const now = Date.now();
+          if (now - lastScrollTime < SCROLL_THROTTLE_TIME) return;
+          lastScrollTime = now;
+
+          if (currentPanelCycleTimeout) clearTimeout(currentPanelCycleTimeout);
+          cyclePanels();
+        };
+
+        categorySelector.addEventListener('change', e => fetchNews(e.target.value));
+        refreshButton.addEventListener('click', () => fetchNews(categorySelector.value));
+
+        window.addEventListener('wheel', handleUserScroll);
+        window.addEventListener('keydown', e => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') handleUserScroll();
+        });
+
+        window.addEventListener('beforeunload', cleanupAndReset);
+
+        return { fetchNews, cleanupAndReset };
+      })();
+
+      NewsAggregator.fetchNews();
+      setInterval(() => window.location.reload(), 12 * 60 * 60 * 1000);
+    });
+  </script>
+</body>
+</html>
